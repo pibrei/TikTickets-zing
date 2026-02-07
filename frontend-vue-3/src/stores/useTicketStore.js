@@ -46,23 +46,86 @@ export const useTicketStore = defineStore('ticket', () => {
     return tickets.search
   }
 
+  function checkTicketFilter(ticket) {
+    const filtros = JSON.parse(localStorage.getItem('filtrosAtendimento')) || {
+      status: ['open', 'pending', 'closed'],
+      queuesIds: [],
+      showAll: false,
+      withUnreadMessages: false,
+      isNotAssignedUser: false
+    }
+    const usuario = JSON.parse(localStorage.getItem('usuario'))
+    const UserQueues = JSON.parse(localStorage.getItem('queues') || '[]')
+    const filasCadastradas = JSON.parse(localStorage.getItem('filasCadastradas') || '[]')
+    const profile = localStorage.getItem('profile')
+    const isAdminShowAll = profile === 'admin' && filtros.showAll
+    const isQueuesTenantExists = filasCadastradas.length > 0
+    const userId = usuario?.userId || +localStorage.getItem('userId')
+
+    // 1. Admin show all
+    if (isAdminShowAll) return true
+
+    // 2. Groups are always visible if tab selected
+    if (ticket.isGroup) return true
+
+    // 3. Filter by status (unless it's the search tab)
+    // Note: status filtering is usually handled by buckets, but for safety:
+    // if (filtros.status.length > 0 && !filtros.status.includes(ticket.status)) return false
+
+    // 4. User assignment
+    if (ticket.userId === userId) return true
+
+    // 5. Queues
+    if (isQueuesTenantExists) {
+      const isQueueUser = UserQueues.findIndex(q => ticket.queueId === q.id)
+      if (isQueueUser === -1) return false // User doesn't have access to this queue
+    }
+
+    // 6. Filter by specific queues selected in UI
+    if (filtros.queuesIds && filtros.queuesIds.length > 0) {
+      if (!filtros.queuesIds.includes(ticket.queueId)) return false
+    }
+
+    // 7. Assigned to others?
+    const NotViewAssignedTickets = () => {
+      const configuracoes = JSON.parse(localStorage.getItem('configuracoes') || '[]')
+      const conf = configuracoes.find(c => c.key === 'NotViewAssignedTickets')
+      return conf?.value === 'enabled'
+    }
+
+    if (NotViewAssignedTickets() && ticket.userId && ticket.userId !== userId) {
+      return false
+    }
+
+    // 8. Not Assigned filter
+    if (filtros.isNotAssignedUser && ticket.userId) {
+      return false
+    }
+
+    return true
+  }
+
   function setTickets(data, type = 'search') {
     if (tickets[type]) {
-      tickets[type] = data
+      // Filtrar antes de definir para garantir visibilidade correta
+      tickets[type] = data.filter(t => checkTicketFilter(t))
     }
   }
 
   function addTickets(data, type = 'search') {
     if (tickets[type]) {
       const current = tickets[type]
-      const uniqueTickets = data.filter(nt => !current.find(t => t.id === nt.id))
+      const filteredData = data.filter(t => checkTicketFilter(t))
+      const uniqueTickets = filteredData.filter(nt => !current.find(t => t.id === nt.id))
       tickets[type] = [...current, ...uniqueTickets]
     }
   }
 
   function updateTicket(ticket) {
-    // 1. Determinar a lista alvo baseada no estado atual do ticket
+    // 1. Determinar a lista alvo baseada no estado atual do ticket e filtros
     let targetType = null
+    const passesFilter = checkTicketFilter(ticket)
+
     if (ticket.isGroup) {
       targetType = 'groups'
     } else {
@@ -79,24 +142,25 @@ export const useTicketStore = defineStore('ticket', () => {
       if (idx !== -1) {
         // O ticket existe nesta lista. Verificar se ainda pertence a ela.
         let belongsHere = false
-        if (key === 'search') belongsHere = true // Sempre atualizar na busca
+        if (key === 'search') belongsHere = true // Na busca, sempre atualiza se já estiver lá
         else if (key === 'groups' && ticket.isGroup) belongsHere = true
         else if (['open', 'pending', 'closed'].includes(key)) {
           if (!ticket.isGroup && ticket.status === key) belongsHere = true
         }
 
-        if (belongsHere) {
+        // Além do status, deve respeitar os filtros gerais (Filas, Admin, etc)
+        if (belongsHere && passesFilter) {
           // Atualiza in-place
           list[idx] = { ...list[idx], ...ticket }
         } else {
-          // Remove da lista incorreta (Migração)
+          // Remove da lista se mudou de status OU não passa mais no filtro
           list.splice(idx, 1)
         }
       }
     })
 
-    // 3. Adicionar na lista correta se não existir lá (e.g. moveu de Open para Pending)
-    if (targetType && targetType !== 'search') {
+    // 3. Adicionar na lista correta se não existir lá e passar no filtro
+    if (targetType && targetType !== 'search' && passesFilter) {
       const list = tickets[targetType]
       // Verificar novamente se já existe (pode ter sido atualizado no passo 2)
       const exists = list.find(t => t.id === ticket.id)

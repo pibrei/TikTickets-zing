@@ -98,11 +98,32 @@ export default {
     
     // Computed para facilitar acesso aos tickets filtrados do store
     cTickets () {
-      // O Store agora gerencia listas separadas por status
+      // 1. Pegar a lista do bucket correspondente da store
+      let tickets = []
       if (this.status === 'groups') {
-        return this.ticketStore.tickets.groups || []
+        tickets = this.ticketStore.tickets.groups || []
+      } else {
+        tickets = this.ticketStore.tickets[this.status] || []
       }
-      return this.ticketStore.tickets[this.status] || []
+
+      // 2. Aplicar filtro de busca client-side
+      const search = (this.searchParams?.searchParam || '').toLowerCase().trim()
+      
+      if (search) {
+        return tickets.filter(t => {
+          const contactName = (t.contact?.name || '').toLowerCase()
+          const contactNumber = (t.contact?.number || '').toLowerCase()
+          const lastMessage = (t.lastMessage || '').toLowerCase()
+          const ticketId = t.id.toString()
+          
+          return contactName.includes(search) || 
+                 contactNumber.includes(search) || 
+                 lastMessage.includes(search) ||
+                 ticketId.includes(search)
+        })
+      }
+
+      return tickets
     },
     
     renderTickets() {
