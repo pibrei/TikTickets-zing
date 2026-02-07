@@ -46,7 +46,7 @@ export const useTicketStore = defineStore('ticket', () => {
     return tickets.search
   }
 
-  function checkTicketFilter(ticket) {
+  function checkTicketFilter(ticket, expectedStatus = null) {
     const filtros = JSON.parse(localStorage.getItem('filtrosAtendimento')) || {
       status: ['open', 'pending', 'closed'],
       queuesIds: [],
@@ -62,31 +62,36 @@ export const useTicketStore = defineStore('ticket', () => {
     const isQueuesTenantExists = filasCadastradas.length > 0
     const userId = usuario?.userId || +localStorage.getItem('userId')
 
+    // 0. Validação de status específica para o bucket (se não for busca geral)
+    if (expectedStatus && expectedStatus !== 'search') {
+      if (expectedStatus === 'groups') {
+        if (!ticket.isGroup) return false
+      } else {
+        if (ticket.isGroup || ticket.status !== expectedStatus) return false
+      }
+    }
+
     // 1. Admin show all
     if (isAdminShowAll) return true
 
     // 2. Groups are always visible if tab selected
     if (ticket.isGroup) return true
 
-    // 3. Filter by status (unless it's the search tab)
-    // Note: status filtering is usually handled by buckets, but for safety:
-    // if (filtros.status.length > 0 && !filtros.status.includes(ticket.status)) return false
-
-    // 4. User assignment
+    // 3. User assignment
     if (ticket.userId === userId) return true
 
-    // 5. Queues
+    // 4. Queues
     if (isQueuesTenantExists) {
       const isQueueUser = UserQueues.findIndex(q => ticket.queueId === q.id)
       if (isQueueUser === -1) return false // User doesn't have access to this queue
     }
 
-    // 6. Filter by specific queues selected in UI
+    // 5. Filter by specific queues selected in UI
     if (filtros.queuesIds && filtros.queuesIds.length > 0) {
       if (!filtros.queuesIds.includes(ticket.queueId)) return false
     }
 
-    // 7. Assigned to others?
+    // 6. Assigned to others?
     const NotViewAssignedTickets = () => {
       const configuracoes = JSON.parse(localStorage.getItem('configuracoes') || '[]')
       const conf = configuracoes.find(c => c.key === 'NotViewAssignedTickets')
@@ -97,7 +102,7 @@ export const useTicketStore = defineStore('ticket', () => {
       return false
     }
 
-    // 8. Not Assigned filter
+    // 7. Not Assigned filter
     if (filtros.isNotAssignedUser && ticket.userId) {
       return false
     }
@@ -108,14 +113,14 @@ export const useTicketStore = defineStore('ticket', () => {
   function setTickets(data, type = 'search') {
     if (tickets[type]) {
       // Filtrar antes de definir para garantir visibilidade correta
-      tickets[type] = data.filter(t => checkTicketFilter(t))
+      tickets[type] = data.filter(t => checkTicketFilter(t, type))
     }
   }
 
   function addTickets(data, type = 'search') {
     if (tickets[type]) {
       const current = tickets[type]
-      const filteredData = data.filter(t => checkTicketFilter(t))
+      const filteredData = data.filter(t => checkTicketFilter(t, type))
       const uniqueTickets = filteredData.filter(nt => !current.find(t => t.id === nt.id))
       tickets[type] = [...current, ...uniqueTickets]
     }

@@ -264,7 +264,7 @@
             class="q-pa-none"
           >
             <TicketList
-              :key="`${tab}-${JSON.stringify(pesquisaTickets)}`"
+              :key="tab"
               :status="tab"
               :active-tab="selectedTab"
               :search-params="pesquisaTickets"

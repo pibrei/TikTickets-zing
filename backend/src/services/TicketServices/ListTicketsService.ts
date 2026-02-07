@@ -2,10 +2,10 @@
 import { QueryTypes } from "sequelize";
 // import { startOfDay, endOfDay, parseISO } from "date-fns";
 
-import Ticket from "../../models/Ticket";
-import UsersQueues from "../../models/UsersQueues";
 import AppError from "../../errors/AppError";
 import Queue from "../../models/Queue";
+import Ticket from "../../models/Ticket";
+import UsersQueues from "../../models/UsersQueues";
 // import ListSettingsService from "../SettingServices/ListSettingsService";
 // import Queue from "../../models/Queue";
 // import ListSettingsService from "../SettingServices/ListSettingsService";
@@ -73,7 +73,8 @@ const ListTicketsService = async ({
     throw new AppError("ERR_NO_STATUS_SELECTED", 404);
   }
 
-  if (isAdminShowAll) {
+  // Se for admin show all, mas NÃO houver status definido, buscar todos
+  if (isAdminShowAll && (!status || status.length === 0)) {
     status = ["open", "pending", "closed"];
   }
 

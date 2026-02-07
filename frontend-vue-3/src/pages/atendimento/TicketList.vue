@@ -197,6 +197,14 @@ export default {
         }
       },
       immediate: true
+    },
+    'searchParams': {
+      handler () {
+        if (this.activeTab === this.status) {
+          this.consultarTickets()
+        }
+      },
+      deep: true
     }
   },
   methods: {
