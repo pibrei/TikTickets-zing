@@ -1,17 +1,23 @@
 import {
-  LocalizarMensagens,
+  AtualizarStatusTicket,
   ConsultarTickets,
+  CriarTicket,
   EncaminharMensagem,
   EnviarMensagemTexto,
-  SincronizarMensagensTicket,
-  AtualizarStatusTicket,
-  CriarTicket,
-  LocalizarProtocolos
+  LocalizarMensagens,
+  LocalizarProtocolos,
+  SincronizarMensagensTicket
 } from 'src/service/tickets'
-import { notificarErro, notificarSucesso, notificarInfo } from 'src/utils/helpersNotifications'
+import { notificarErro } from 'src/utils/helpersNotifications'
 
 export const useTicketStore = defineStore('ticket', () => {
-  const tickets = ref([])
+  const tickets = reactive({
+    open: [],
+    pending: [],
+    closed: [],
+    groups: [],
+    search: []
+  })
   const ticketFocado = ref({})
   const hasMore = ref(true)
   const loading = ref(false)
@@ -27,38 +33,89 @@ export const useTicketStore = defineStore('ticket', () => {
   })
   const drawerContact = ref(false)
 
-  const openTickets = computed(() => tickets.value.filter(t => t.status === 'open' && !t.isGroup))
+  // Getters compatibility
+  const openTickets = computed(() => tickets.open)
+  const pendingTickets = computed(() => tickets.pending)
+  const closedTickets = computed(() => tickets.closed)
+  const groupTickets = computed(() => tickets.groups)
 
-  const pendingTickets = computed(() => tickets.value.filter(t => t.status === 'pending' && !t.isGroup))
-
-  const closedTickets = computed(() => tickets.value.filter(t => t.status === 'closed' && !t.isGroup))
-
-  const groupTickets = computed(() => tickets.value.filter(t => t.isGroup))
-
-  function setTickets(data) {
-    tickets.value = data
+  function getTicketList(type) {
+    if (type === 'search') return tickets.search
+    if (type === 'groups') return tickets.groups
+    if (['open', 'pending', 'closed'].includes(type)) return tickets[type]
+    return tickets.search
   }
 
-  function addTickets(data) {
-    // Evitar duplicados ao adicionar
-    const uniqueTickets = data.filter(nt => !tickets.value.find(t => t.id === nt.id))
-    tickets.value = [...tickets.value, ...uniqueTickets]
+  function setTickets(data, type = 'search') {
+    if (tickets[type]) {
+      tickets[type] = data
+    }
+  }
+
+  function addTickets(data, type = 'search') {
+    if (tickets[type]) {
+      const current = tickets[type]
+      const uniqueTickets = data.filter(nt => !current.find(t => t.id === nt.id))
+      tickets[type] = [...current, ...uniqueTickets]
+    }
   }
 
   function updateTicket(ticket) {
-    const idx = tickets.value.findIndex(t => t.id === ticket.id)
-    if (idx !== -1) {
-      tickets.value[idx] = { ...tickets.value[idx], ...ticket }
-      if (ticketFocado.value.id === ticket.id) {
-        ticketFocado.value = { ...ticketFocado.value, ...ticket }
-      }
+    // 1. Determinar a lista alvo baseada no estado atual do ticket
+    let targetType = null
+    if (ticket.isGroup) {
+      targetType = 'groups'
     } else {
-      tickets.value.unshift(ticket)
+      if (['open', 'pending', 'closed'].includes(ticket.status)) {
+        targetType = ticket.status
+      }
+    }
+
+    // 2. Atualizar ou remover das listas existentes
+    Object.keys(tickets).forEach(key => {
+      const list = tickets[key]
+      const idx = list.findIndex(t => t.id === ticket.id)
+
+      if (idx !== -1) {
+        // O ticket existe nesta lista. Verificar se ainda pertence a ela.
+        let belongsHere = false
+        if (key === 'search') belongsHere = true // Sempre atualizar na busca
+        else if (key === 'groups' && ticket.isGroup) belongsHere = true
+        else if (['open', 'pending', 'closed'].includes(key)) {
+          if (!ticket.isGroup && ticket.status === key) belongsHere = true
+        }
+
+        if (belongsHere) {
+          // Atualiza in-place
+          list[idx] = { ...list[idx], ...ticket }
+        } else {
+          // Remove da lista incorreta (Migração)
+          list.splice(idx, 1)
+        }
+      }
+    })
+
+    // 3. Adicionar na lista correta se não existir lá (e.g. moveu de Open para Pending)
+    if (targetType && targetType !== 'search') {
+      const list = tickets[targetType]
+      // Verificar novamente se já existe (pode ter sido atualizado no passo 2)
+      const exists = list.find(t => t.id === ticket.id)
+      if (!exists) {
+        // Adiciona no topo
+        list.unshift(ticket)
+      }
+    }
+
+    if (ticketFocado.value.id === ticket.id) {
+      ticketFocado.value = { ...ticketFocado.value, ...ticket }
     }
   }
 
   function deleteTicket(ticketId) {
-    tickets.value = tickets.value.filter(t => t.id !== ticketId)
+    Object.keys(tickets).forEach(key => {
+      tickets[key] = tickets[key].filter(t => t.id !== ticketId)
+    })
+
     if (ticketFocado.value.id === ticketId) {
       ticketFocado.value = {}
     }
@@ -94,8 +151,13 @@ export const useTicketStore = defineStore('ticket', () => {
     hasMore.value = value
   }
 
-  function resetTickets() {
-    tickets.value = []
+  function resetTickets(type) {
+    if (type && tickets[type]) {
+      tickets[type] = []
+    } else {
+      // Reset all if no type
+      Object.keys(tickets).forEach(k => tickets[k] = [])
+    }
     hasMore.value = true
   }
 
@@ -135,11 +197,14 @@ export const useTicketStore = defineStore('ticket', () => {
   }
 
   function updateTicketContact(contact) {
-    tickets.value.forEach(t => {
-      if (t.contactId === contact.id) {
-        t.contact = contact
-      }
+    Object.keys(tickets).forEach(key => {
+      tickets[key].forEach(t => {
+        if (t.contactId === contact.id) {
+          t.contact = contact
+        }
+      })
     })
+
     if (ticketFocado.value.contactId === contact.id) {
       ticketFocado.value.contact = contact
     }
@@ -170,10 +235,19 @@ export const useTicketStore = defineStore('ticket', () => {
     loading.value = true
     try {
       const { data } = await ConsultarTickets(params)
+
+      // Determinar o tipo de lista a atualizar
+      let type = 'search'
+      if (params.isGroup) {
+        type = 'groups'
+      } else if (params.status && params.status.length === 1) {
+        type = params.status[0]
+      }
+
       if (isLoadMore) {
-        addTickets(data.tickets)
+        addTickets(data.tickets, type)
       } else {
-        setTickets(data.tickets)
+        setTickets(data.tickets, type)
       }
       setHasMore(data.hasMore)
 
@@ -326,6 +400,7 @@ export const useTicketStore = defineStore('ticket', () => {
     criarTicket,
     listarProtocolos,
     protocolos,
+    getTicketList,
     ticketsCount,
     drawerContact,
     atualizarContadoresGerais
