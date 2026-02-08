@@ -51,14 +51,6 @@ interface TicketData {
  * Este endpoint retorna tickets paginados e a contagem total de tickets
  * que atendem aos critérios de busca especificados.
  */
-/**
- * Lista tickets com base nos filtros fornecidos
- * 
- * Este endpoint retorna tickets paginados e a contagem total de tickets
- * que atendem aos critérios de busca especificados. Ele utiliza os parâmetros
- * de busca fornecidos pelo usuário para filtrar os tickets de acordo com
- * critérios como status, data e se possuem mensagens não lidas.
- */
 export const index = async (req: Request, res: Response): Promise<Response> => {
   const { tenantId, profile } = req.user;
   const {
@@ -67,10 +59,10 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
     date,
     showAll,
     withUnreadMessages,
-    queuesIds,
+    // queuesIds removido daqui para evitar redeclaração
     isNotAssignedUser,
-    includeNotQueueDefined,
-    tags
+    includeNotQueueDefined
+    // tags removido daqui para evitar redeclaração
   } = req.query as IndexQuery;
 
   // Garantir que os parâmetros de array sejam corretamente capturados, vindo de 'param' ou 'param[]'
@@ -106,13 +98,6 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
  * Cria um novo ticket
  * Se não houver usuário associado, emite evento via socket
  */
-/**
- * Cria um novo ticket
- * 
- * Este endpoint permite a criação de um novo ticket no sistema. Ele recebe
- * os dados do ticket através do corpo da requisição e, se não houver um
- * usuário associado, emite um evento via socket para notificar a criação.
- */
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { tenantId } = req.user;
   const { contactId, status, userId, channel, channelId }: TicketData =
@@ -142,13 +127,6 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 /**
  * Exibe detalhes de um ticket específico
  * Inclui mensagens agendadas e registra acesso no log
- */
-/**
- * Exibe detalhes de um ticket específico
- * 
- * Este endpoint retorna as informações detalhadas de um ticket, incluindo
- * mensagens agendadas e registra o acesso no log. Ele busca o ticket pelo
- * ID fornecido na requisição e anexa as mensagens agendadas ao objeto do ticket.
  */
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { ticketId } = req.params;
@@ -198,13 +176,6 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
 /**
  * Atualiza um ticket existente
  * Se fechado, pode enviar mensagem de despedida configurada
- */
-/**
- * Atualiza um ticket existente
- * 
- * Este endpoint permite modificar a estrutura e configurações de um ticket
- * existente. Se o ticket estiver fechado, pode enviar uma mensagem de
- * despedida configurada para o usuário.
  */
 export const update = async (
   req: Request,
@@ -258,13 +229,6 @@ export const update = async (
  * Remove um ticket do sistema
  * Notifica remoção via socket para atualização em tempo real
  */
-/**
- * Remove um ticket do sistema
- * 
- * Este endpoint exclui permanentemente um ticket do sistema e notifica
- * a remoção via socket para atualização em tempo real. Isso garante que
- * todos os usuários conectados recebam a atualização imediatamente.
- */
 export const remove = async (
   req: Request,
   res: Response
@@ -290,12 +254,6 @@ export const remove = async (
 /**
  * Exibe o histórico de logs de um ticket
  * Útil para auditoria e acompanhamento de mudanças
- */
-/**
- * Exibe o histórico de logs de um ticket
- * 
- * Este endpoint retorna todos os logs associados a um ticket específico,
- * permitindo auditoria e acompanhamento de mudanças ao longo do tempo.
  */
 export const showLogsTicket = async (
   req: Request,
