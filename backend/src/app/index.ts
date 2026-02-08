@@ -21,8 +21,8 @@ export default async function application() {
   // Cria a instância do Express e do servidor HTTP
   const app: any = express();
   const httpServer: any = createServer(app);
-  // Define a porta do servidor, usando variável de ambiente ou 3100 como padrão
-  const port = app.get("port") || env.PORT || 3100;
+  // Define a porta do servidor, priorizando a variável de ambiente (Railway) sobre configurações internas
+  const port = env.PORT || app.get("port") || 3100;
 
   // Configura o Express com middlewares e rotas
   await configureExpress(app);
