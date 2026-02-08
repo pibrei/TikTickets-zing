@@ -812,7 +812,7 @@ onMounted(() => {
   listarWhatsapps() // Carregar status dos canais
   usuarioStore.listarUsuarios() // Carregar usuários para carteira
   carregarFiltros() // Carrega filtros salvos ao montar
-  ticketStore.atualizarContadoresGerais() // Sincroniza todos os números do topo
+  ticketStore.atualizarContadoresGerais(pesquisaTickets) // Sincroniza todos os números do topo com os filtros reais
 
   bus.on('infor-cabecalo-chat:acao-menu', handleAcaoMenu)
   

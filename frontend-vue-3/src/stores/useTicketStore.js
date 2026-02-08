@@ -400,15 +400,16 @@ export const useTicketStore = defineStore('ticket', () => {
     }
   }
 
-  async function atualizarContadoresGerais() {
+  async function atualizarContadoresGerais(filtrosAtuais = {}) {
+    // Mesclar filtros atuais com baseParams para respeitar showAll, queuesIds, etc.
     const baseParams = {
       searchParam: '',
       pageNumber: 1,
-      showAll: false,
-      count: null,
-      queuesIds: [],
-      withUnreadMessages: false,
-      isNotAssignedUser: false,
+      showAll: filtrosAtuais.showAll || false,
+      queuesIds: filtrosAtuais.queuesIds || [],
+      tagsIds: filtrosAtuais.tagsIds || [],
+      withUnreadMessages: filtrosAtuais.withUnreadMessages || false,
+      isNotAssignedUser: filtrosAtuais.isNotAssignedUser || false,
       includeNotQueueDefined: true,
       limit: 1 // Queremos apenas o count, não os tickets
     }
@@ -416,19 +417,19 @@ export const useTicketStore = defineStore('ticket', () => {
     try {
       // Aberto
       const { data: openData } = await ConsultarTickets({ ...baseParams, status: ['open'] })
-      ticketsCount.value.open = openData.count
+      ticketsCount.value.open = openData.count || 0
 
       // Pendente
       const { data: pendingData } = await ConsultarTickets({ ...baseParams, status: ['pending'] })
-      ticketsCount.value.pending = pendingData.count
+      ticketsCount.value.pending = pendingData.count || 0
 
       // Fechado
       const { data: closedData } = await ConsultarTickets({ ...baseParams, status: ['closed'] })
-      ticketsCount.value.closed = closedData.count
+      ticketsCount.value.closed = closedData.count || 0
 
       // Grupos
       const { data: groupsData } = await ConsultarTickets({ ...baseParams, status: ['open', 'pending'], isGroup: true })
-      ticketsCount.value.groups = groupsData.count
+      ticketsCount.value.groups = groupsData.count || 0
     } catch (error) {
       console.error('Erro ao sincronizar contadores globais', error)
     }
