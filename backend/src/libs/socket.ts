@@ -29,8 +29,8 @@ export const initIO = (httpServer: Server): SocketIO => {
     password: process.env.IO_REDIS_PASSWORD // Senha do Redis
   };
 
-  const redis = socketRedis as any; // Declara a variável redis como tipo any
-  io.adapter(redis(connRedis)); // Configura o adaptador Redis para o SocketIO
+  // const redis = socketRedis as any; // Declara a variável redis como tipo any
+  // io.adapter(redis(connRedis)); // Configura o adaptador Redis para o SocketIO
 
   io.use(async (socket, next) => { // Middleware para autenticação de sockets
     try {
